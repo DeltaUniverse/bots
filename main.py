@@ -1,14 +1,17 @@
+from os import environ
+
 from logging import(
     basicConfig, 
     getLogger,
     INFO
 )
 
-from decouple import config
-
 from time import time
-from pytz import utc, timezone
-from datetime import datetime
+from datetime import(
+  datetime,
+  timedelta,
+  timezone
+)
 
 from asyncio import sleep
 
@@ -24,10 +27,10 @@ log = getLogger()
 
 
 try:
-    SSTR = config("SSTR")
-    BOTS = config("BOTS").splitlines()
-    CHID = config("CHID", cast=int)
-    EDIT = config("EDIT", cast=int)
+    SSTR = environ.get("SSTR")
+    BOTS = environ.get("BOTS").splitlines()
+    CHID = int(environ.get("CHID"))
+    EDIT = int(environ.get("EDIT"))
 except BaseException as e:
     log.info(e)
     exit(1)
@@ -74,20 +77,12 @@ async def _checkup():
                 result[bot] = {"status": "ON"}
         except BaseException:
             result[bot] = {"status": "OFF"}
-        await client(
-            messages.DeleteHistoryRequest(
-                peer=bot, 
-                max_id=0, 
-                just_clear=False,
-                revoke=True
-            )
-        )
-
-        log.info(f"[{result[bot]['status']}] {bot}")
+        await client.send_read_acknowledge(bot)
 
     end = time()
-    log.info("Completed!")
     
+    log.info(f"[{result[bot]['status']}] {bot}")
+
     msg = "@username: On | ~~@username~~: Off\n\n"
 
     for bot, value in result.items():
@@ -97,9 +92,8 @@ async def _checkup():
             else f"{bot}\n"
         )
     
-    utctime = datetime.now(utc)
-    current = utctime.astimezone(timezone("Asia/Jakarta"))
-    ftime = current.strftime("%B %-d, %-I:%M %p")
+    current = datetime.now(tz=timezone(timedelta(hours=7)))
+    ftime = current.strftime("%B %d, %A %I:%M %p")
     
     msg += f"\n{ftime}"
     
@@ -108,14 +102,14 @@ async def _checkup():
     mins = int((taken % 3600) // 60)
     secs = int(taken % 60)
     
-    msg += "\ntook " 
+    msg += "\ntooks " 
     
     if hours > 0:
-        msg += f"{hours}h "
+        msg += f"{hours} hour(s), "
     if mins > 0:
-        msg += f"{mins}m "
+        msg += f"{mins} minute(s), "
     if secs > 0:
-        msg += f"{secs}s"
+        msg += f"{secs} second(s)"
 
 
     try:
